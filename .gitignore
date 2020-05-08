@@ -2,13 +2,14 @@
 .terraform
 .terragrunt-cache
 *.tfstate*
+crash.log
 
 # Secrets are not allowed in general
 *.key
 *.pem
 
 # Secrets are encrypted using git-crypt
-!files/secrets/*/*
+!secrets/*
 
 # OS X
 .history
@@ -22,4 +23,3 @@
 .idea/
 build/
 */build/
-out/
