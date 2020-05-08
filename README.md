@@ -1,18 +1,20 @@
-# Acme's Infrastructure - Terragrunt Reference Architecture
+# Acme's Infrastructure - Terragrunt Reference Architecture (updated: May 2020)
 
 This repository contains rather complete infrastructure configurations where [Terragrunt](https://github.com/gruntwork-io/terragrunt) is used to manage infrastructure for [Acme Corporation](https://en.wikipedia.org/wiki/Acme_Corporation).
 
+
 ### By the way!
 
-This code is very close to the one produced by [modules.tf](https://modules.tf/) - [open-source](https://github.com/antonbabenko/modules.tf-lambda) infrastructure as code generator from visual diagrams created with [Cloudcraft.co](https://cloudcraft.co/app). 
+This code is very close to the one produced by [modules.tf](https://modules.tf/) - [open-source](https://github.com/antonbabenko/modules.tf-lambda) infrastructure as code generator from visual diagrams created with [Cloudcraft.co](https://cloudcraft.co/app). See it yourself in [modules.tf-demo](https://github.com/antonbabenko/modules.tf-demo)!
+
 
 ## Introduction
 
 Acme has several environments (prod, staging and dev) entirely separated by AWS accounts.
 
-Infrastructure in each environment consists of multiple layers (autoscaling, alb, vpc, ...) where each layer is configured using one of [Terraform AWS modules](https://github.com/terraform-aws-modules/) with arguments specified in `terraform.tfvars` in layer's directory.
+Infrastructure in each environment consists of multiple layers (autoscaling, alb, vpc, ...) where each layer is configured using one of [Terraform AWS modules](https://github.com/terraform-aws-modules/) with arguments specified in `terragrunt.hcl` in layer's directory.
 
-[Terragrunt](https://github.com/gruntwork-io/terragrunt) is used to work with Terraform configurations which allows to orchestrate dependent layers, update arguments dynamically and keep configurations [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself).
+[Terragrunt](https://github.com/gruntwork-io/terragrunt) is used to work with Terraform configurations which allows orchestrating of dependent layers, update arguments dynamically and keep configurations [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself).
 
 
 ## Environments
@@ -31,54 +33,75 @@ Primary AWS region for all environments is `eu-central-1 (Frankfurt)`:
   
 ## Pre-requirements
 
-- [Terraform 0.11](https://github.com/hashicorp/terraform)
-- [Terragrunt 0.18 or newer](https://github.com/gruntwork-io/terragrunt)
+- [Terraform 0.12](https://www.terraform.io/intro/getting-started/install.html)
+- [Terragrunt 0.22 or newer](https://terragrunt.gruntwork.io/docs/getting-started/install/)
 - [Terraform Docs](https://github.com/segmentio/terraform-docs)
 - [pre-commit hooks](http://pre-commit.com) to keep Terraform formatting and documentation up-to-date
-- [tfvars-annotations](https://github.com/antonbabenko/tfvars-annotations) to process & update annotations in tfvars files
 - [direnv](https://github.com/direnv/direnv#setup) to automatically set correct environment variables per AWS account as specified in `.envrc` (optional)
 
-If you are using Mac you can install all dependencies using Homebrew:
+If you are using macOS you can install all dependencies using [Homebrew](https://brew.sh/):
 
-    $ brew install terraform terraform-docs terragrunt pre-commit direnv
-    $ brew install https://raw.githubusercontent.com/antonbabenko/tfvars-annotations/master/HomebrewFormula/tfvars-annotations.rb
-
-## AWS accounts and IAM relations
-
-Acme has dedicated AWS account where IAM users, groups and roles are managed. This AWS account is used as a jump account, where IAM users are logged in and then they assume role in other AWS account.
-
-AWS access credentials should be set using environment variables:
-
-    $ export AWS_DEFAULT_REGION=eu-central-1
-    $ export AWS_ACCESS_KEY_ID=...
-    $ export AWS_SECRET_ACCESS_KEY=...
-
-[aws-vault](https://github.com/99designs/aws-vault), [vaulted](https://github.com/miquella/vaulted) or other tool can be used to manage your AWS credentials securely locally and switch roles.
+    $ brew install terraform terragrunt pre-commit
 
 
-## How to use it?
+## Configure access to AWS account
 
-Go to directory for the environment and region you want to work with:
+Acme has dedicated AWS account where IAM users, groups and roles managed. This AWS account is a jump account, where IAM users logged in, and then they assume role in other AWS account.
 
-    $ cd acme-staging/eu-central-1
-    
-Initialize the dependencies (download providers and modules). This command is enough to run once:
+The recommended way to configure access credentials to AWS account is using environment variables:
 
-    $ terragrunt init
+```
+$ export AWS_DEFAULT_REGION=eu-west-1
+$ export AWS_ACCESS_KEY_ID=...
+$ export AWS_SECRET_ACCESS_KEY=...
+```
 
-To create infrastructure in all layers in a single region:
-
-    $ terragrunt apply-all
-
-Alternatively, you can create infrastructure in a single layer (eg, `vpc`):
-
-    $ cd vpc
-    $ terragrunt apply
-
-See [official Terragrunt documentation](https://github.com/gruntwork-io/terragrunt/blob/master/README.md) for all available commands and features.
+Alternatively, you can edit `terragrunt.hcl` and use another authentication mechanism as described in [AWS provider documentation](https://www.terraform.io/docs/providers/aws/index.html#authentication).
 
 
-## Authors
+[aws-vault](https://github.com/99designs/aws-vault), [vaulted](https://github.com/miquella/vaulted), [awsp](https://github.com/antonbabenko/awsp) or other tool can be used to manage your AWS credentials securely locally and switch roles.
+
+
+## Create and manage your infrastructure
+
+Infrastructure consists of multiple layers (vpc, alb, ...) where each layer is described using one [Terraform module](https://www.terraform.io/docs/configuration/modules.html) with `inputs` arguments specified in `terragrunt.hcl` in respective layer's directory.
+
+Navigate through layers to review and customize values inside `inputs` block.
+
+There are two ways to manage infrastructure (slower&complete, or faster&granular):
+- **Region as a whole (slower&complete).** Run this command to create infrastructure in all layers in a single region:
+
+```
+$ cd acme-prod/eu-central-1
+$ terragrunt apply-all
+```
+
+- **As a single layer (faster&granular).** Run this command to create infrastructure in a single layer (eg, `vpc`):
+
+```
+$ cd acme-prod/eu-central-1/vpc
+$ terragrunt apply
+```
+
+After you confirm the creation of the infrastructure should succeed.
+
+If you want to suppress irrelevant output produced by Terragrunt, you can install this alias in your shell ([source to gist](https://gist.github.com/antonbabenko/675049186e54b770b4789886d2056639)):
+
+    terragrunt () {
+    	local action=$1
+    	shift 1
+    	command terragrunt $action "$@" 2>&1 | sed -E "s|$(dirname $(pwd))/||g;s|^\[terragrunt\]( [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})* ||g;s|(\[.*\]) [0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}|\1|g"
+    }
+
+
+## References
+
+* [Terraform documentation](https://www.terraform.io/docs/) and [Terragrunt documentation](https://terragrunt.gruntwork.io/docs/) for all available commands and features.
+* [Terraform AWS modules](https://github.com/terraform-aws-modules/).
+* [Terraform modules registry](https://registry.terraform.io/).
+
+
+## Author
 
 This project is created and maintained by [Anton Babenko](https://github.com/antonbabenko).
 
@@ -87,6 +110,6 @@ This project is created and maintained by [Anton Babenko](https://github.com/ant
 
 ## License
 
-This work is licensed under MIT License. See LICENSE for full details.
+All content, including [Terraform AWS modules](https://github.com/terraform-aws-modules/) used in these configurations, is released under the MIT License.
 
-Copyright (c) 2019 Anton Babenko
+Copyright (c) 2019-2020 Anton Babenko

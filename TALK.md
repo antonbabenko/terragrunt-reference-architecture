@@ -6,8 +6,8 @@
  - code structure
  - IAM roles (direnv)
  - Terragrunt hooks
- - tfvars-annotations
  - dependencies
+ - ~~tfvars-annotations~~ dependency
  - apply-all
  - pre-commit, terraform-docs
  - atlantis (later)
