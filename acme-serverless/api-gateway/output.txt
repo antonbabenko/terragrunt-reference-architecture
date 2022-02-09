@@ -1,0 +1,1 @@
+arn:aws:apigateway:eu-west-1::/apis/88o5jaa82l/stages/$default
